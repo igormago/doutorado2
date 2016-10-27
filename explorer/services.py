@@ -8,18 +8,28 @@ import os, requests
 
 from bs4 import BeautifulSoup
 
+from sqlalchemy import distinct, or_
 from core import utils
 from explorer import models
-from explorer.models import Championship, Match, Team
+from explorer.models import Championship, Match, Team, Table
+from core.utils import Championships as champ
+from core.utils import Path as path
 
 session = models.getSession()
 
-def crawlerChampionshipFiles(year, tourneament):
+def crawlerChampionshipFiles(year, tourneament, typeChamp):
+    
+    if (typeChamp == 2):
+        tourneamentYears = str(year) + "-" + str(year+1)
+        url = utils.URL_BETEXPLORER + tourneament[1] + "-" + tourneamentYears + "/results/"
+    else:
+        url = utils.URL_BETEXPLORER + tourneament[1] + "-" + str(year) + "/results/"
+    
+    print(url)
+    tourneamentName = tourneament[0] + " - " + str(year)
 
-    tourneamentName = tourneament + "-" + str(year)
-
-    url = utils.URL_BETEXPLORER + tourneamentName + "/results/"
-    fileName = utils.PATH_BETEXPLORER_CHAMPS + tourneamentName + ".html"
+    fileName = path.BETEXPLORER_CHAMPS + tourneamentName + ".html"
+    
 
     if (not os.path.exists(fileName)):
         print("NÃO EXISTE o ARQUIVO: ", fileName)
@@ -33,7 +43,7 @@ def crawlerChampionshipFiles(year, tourneament):
         print("JÁ EXISTE O ARQUIVO: ", fileName)
         
     try:
-        session.add(Championship(name=tourneament, year=year))
+        session.add(Championship(name=tourneament[0], year=year))
         session.commit()
     except:
         print("JA EXISTE NO BANCO:" + fileName)
@@ -45,7 +55,7 @@ def scrapChampionshipFiles():
 
     for c in championships:
 
-        fileName = utils.PATH_BETEXPLORER_CHAMPS + c.getFileName()
+        fileName = path.BETEXPLORER_CHAMPS + c.getFileName()
         print("SCRAPING: " + fileName)
         file = open(fileName, 'r')
 
@@ -131,6 +141,216 @@ def scrapChampionshipFiles():
                         except:
                             session.rollback()
                             match = session.query(Match).filter(Match.id==match.id)
+                            
+def scrapChampionshipFile(championship, year):
+
+    fileName = path.BETEXPLORER_CHAMPS + champ.getFileName(championship[0], year)
+    champDB = Championship.get(championship[0], year)
+    
+    print("SCRAPING: " + fileName)
+    file = open(fileName, 'r')
+ 
+    content = file.read()
+
+    soup = BeautifulSoup(content, 'html.parser')
+
+    text = soup.find(id="leagueresults_tbody")
+    trs = text.find_all("tr")
+
+    line = 0
+    match = Match()
+    roundNum = 0
+    for tr in trs:
+
+        if (tr['class'][0] == 'rtitle'):
+            roundNum = tr.getText().split(".")[0]
+        else:
+            
+            tds = tr.find_all('td')
+
+            for td in tds:
+                line = line + 1
+                if (line == 1):
+                    match = Match()
+
+                    a = td.find('a')
+                    match.id = a['href'].split("=")[1]
+
+                    homeTeamName = td.getText().split(" - ")[0].strip()
+                    awayTeamName = td.getText().split(" - ")[1].strip()
+
+                    try:
+                        homeTeam = session.query(Team).filter(Team.name==homeTeamName)
+                        homeTeam = homeTeam.one()
+                    except:
+                        homeTeam = Team(name=homeTeamName)
+                        session.add(homeTeam)
+                        session.commit()
+
+                    try:
+                        awayTeam = session.query(Team).filter(Team.name==awayTeamName).one()
+                    except:
+                        awayTeam = Team(name=awayTeamName)
+                        session.add(awayTeam)
+                        session.commit()
+                    
+                    match.homeTeamId = homeTeam.id
+                    match.awayTeamId = awayTeam.id
+                    match.roundNum = roundNum
+                    match.championshipId = champDB.id
+
+                elif (line == 2):
+                    match.goalsHome = td.getText().split(':')[0]
+                    match.goalsAway = td.getText().split(':')[1].split()[0]
+                    
+                    if (match.goalsHome > match.goalsAway):
+                        match.result = match.RESULT_HOME_WINNER
+                    elif (match.goalsAway > match.goalsHome):
+                        match.result = match.RESULT_AWAY_WINNER
+                    else:
+                        match.result = match.RESULT_DRAW
+
+                elif (line == 3):
+                    try:
+                        match.oddsHome = td['data-odd']
+                    except:
+                        match.oddsHome = None
+
+                elif (line == 4):
+                    try:
+                        match.oddsDraw = td['data-odd']
+                    except:
+                        match.oddsDraw = None
+
+                elif (line == 5):
+                    try:
+                        match.oddsAway = td['data-odd']
+                    except:
+                        match.oddsAway = None
+
+                elif (line == 6):
+                    dateStr = td.getText()
+                    match.matchDate = datetime.strptime(dateStr,"%d.%m.%Y")
+                    line = 0
+
+                    try:
+                        session.add(match)
+                        session.commit()
+                    except:
+                        session.rollback()
+                        match = session.query(Match).filter(Match.id==match.id)
+                        
+def crawlerMatchFiles(matchId):
+
+    url = "http://www.betexplorer.com//gres/ajax-matchodds.php"
+
+    types = {'1x2', 'ou', 'ah', 'ha', 'dc', 'bts'}
+    params = {} 
+    params['t'] = 'n'
+    params['e'] = matchId
+
+    for tp in types:
+
+        params['b'] = type
+        fileName = path.BETEXPLORER_MATCHES  + matchId + "-" + tp + ".html"
+
+        if (os.path.exists(fileName)):
+            print("JA EXISTE: ", )
+        else:
+            r = requests.get(url,params=params)
+
+            file = open(fileName,'wb')
+            file.write(r.content)
+            file.close()
+            
+            
+def extracTables():
+
+    #list of championships
+    championships = Championship.list()
+
+    for champ in championships:
+        
+        print(champ)
+
+        #list ID teams of championship
+        teams = champ.listTeams()
+        
+        for team in teams:
+
+            print(team)
+
+            #list matches of team in championship order by match date
+            matches = team.listMatches(champ.id)
+
+            #var
+            stats = dict(dict.fromkeys(['mp','mph','mpa','lml'\
+                                        'w','d','l','gp','ga','p',\
+                                        'wh','dh','lh','gfh','gah','ph',\
+                                        'wa','da','la','gfa','gaa','pa'], 0))
+
+            firstMatch = True
+            table = None
+            for match in matches:
+
+                if (firstMatch != True):
+                    table.nextMachId = match.id
+                    session.commit()
+                    
+
+                if (match.homeTeamId == team.id):
+                    
+                    stats['mph']+=1 
+                    
+                    if (match.goalsHome > match.goalsAway):
+                        stats['wh']+=1
+                    elif (match.goalsHome < match.goalsAway):
+                        stats['lh']+=1
+                    else:
+                        stats['dh']+=1
+
+                    stats['gfh']+=match.goalsHome
+                    stats['gah']+=match.goalsAway
+                    stats['ph']= stats['wh']*3 + stats['dh']
+                    stats['lml']= Table.LOCAL_HOME
+                    
+                else:
+
+                    stats['mpa']+=1
+                    
+                    if (match.goalsAway > match.goalsHome):
+                        stats['wa']+=1
+                    elif (match.goalsAway < match.goalsHome):
+                        stats['la']+=1
+                    else:
+                        stats['da']+=1
+                        
+                    stats['gfa']+=match.goalsAway
+                    stats['gaa']+=match.goalsHome
+                    stats['pa']= stats['wa']*3 + stats['da']
+                    stats['lml']= Table.LOCAL_AWAY
+            
+                stats['w'] = stats['wh'] + stats['wa']
+                stats['l'] = stats['lh'] + stats['la']
+                stats['d'] = stats['dh'] + stats['da']
+                stats['gf'] = stats['gfh'] + stats['gfa']
+                stats['ga'] = stats['gah'] + stats['gaa']
+                stats['p'] = stats['ph'] + stats['pa']
+                stats['mp'] = stats['mph'] + stats['mpa']
+                
+                table = Table(champ.id, team.id, stats['lml'],\
+                              stats['mp'],stats['w'],stats['d'],stats['l'],stats['gf'],stats['ga'],stats['p'],\
+                              stats['mph'],stats['wh'],stats['dh'],stats['lh'],stats['gfh'],stats['gah'],stats['ph'],\
+                              stats['mpa'],stats['wa'],stats['da'],stats['la'],stats['gfa'],stats['gaa'],stats['pa'])
+
+                session.add(table)
+                session.commit()
+                
+                firstMatch = False
+                
+extracTables()
+
+
 #          
 # def crawlerMatchFiles():
 # 

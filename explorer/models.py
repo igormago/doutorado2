@@ -8,7 +8,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.sql import case
+from sqlalchemy.sql import case, distinct, or_
+from mpmath import mp
 
 Base = declarative_base()
 
@@ -18,6 +19,9 @@ session = Session()
 
 def getSession():
     return session
+
+def getEngine():
+    return engine
 
 class ModelMixin(object):
 
@@ -42,14 +46,25 @@ class Championship(Base,ModelMixin):
         r = "Championship: ", self.id, self.name, self.year
         return (str(r))
 
-    def get (self, championshipName):
-        return session.query(Championship).filter(Championship.name == championshipName).one()
+    @staticmethod
+    def get (championshipName, year):
+        return session.query(Championship).filter(Championship.name == championshipName,
+                                                  Championship.year == year).one()
 
+    @staticmethod
+    def getById (champId):
+        return session.query(Championship).filter(Championship.id == champId).one()
+                                                  
     def listMatches (self):
         return session.query(Match).filter(Match.championshipId == self.id).order_by(Match.matchDate).all()
     
     def getFileName(self):
         return self.name + "-" + str(self.year) + ".html"
+    
+    def listTeams(self):
+        return session.query(Team).filter(or_(Match.awayTeamId == Team.id, Match.homeTeamId == Team.id),\
+                                                        Match.championshipId == self.id).distinct().all()
+                                                        
 
 class Team(Base, ModelMixin):
     __tablename__ = 'teams'
@@ -66,10 +81,18 @@ class Team(Base, ModelMixin):
 
     def getById(self, teamId):
         return session.query(Team).filter(Team.id == teamId).one()
+    
+    def listMatches(self, championshipId):
+        return session.query(Match).filter(or_(Match.awayTeamId == self.id, Match.homeTeamId == self.id),\
+                                                  Match.championshipId == championshipId).order_by(Match.matchDate).all()
 
 class Match(Base,ModelMixin):
 
     __tablename__ = 'matches'
+    
+    RESULT_HOME_WINNER = 'H'
+    RESULT_DRAW = 'D'
+    RESULT_AWAY_WINNER ='A'
 
     id = Column("match_id",String(45), primary_key=True)
     championshipId = Column("championship_id",Integer, ForeignKey('championships.championship_id'))
@@ -77,7 +100,7 @@ class Match(Base,ModelMixin):
     awayTeamId = Column("away_team_id", Integer,ForeignKey('teams.team_id'))
     goalsHome = Column("goals_home", Integer)
     goalsAway = Column("goals_away", Integer)
-    result = Column("column_result",Integer)
+    result = Column("column_result",String(1))
     matchDate = Column("match_date",Date)
     roundNum = Column("round_num",Integer)
     oddsHome = Column("odds_home",Numeric)
@@ -88,21 +111,23 @@ class Match(Base,ModelMixin):
         return "ID: " + self.id  + ": " + str(self.homeTeamId) +\
         "(" + str(self.goalsHome) + ") x (" + str(self.goalsAway) + ")" + str(self.awayTeamId)
 
-    def get (self, matchId):
+    @staticmethod
+    def get (matchId):
         return session.query(Match).filter(Match.id==matchId).one()
 
     def getFileName(self, oddType):
         return self.id + "_" + oddType + ".html"
-        
-    def list (self):
+    
+    @staticmethod
+    def list ():
         return session.query(Match).filter().all()
 
     def favorite (self):
         if (self.oddsHome <= self.oddsDraw and self.oddsHome <= self.oddsAway):
-            return 0;
+            return Match.RESULT_HOME_WINNER;
         elif(self.oddsDraw <= self.oddsAway):
-            return 1;
-        return 2;
+            return Match.RESULT_DRAW;
+        return Match.RESULT_AWAY_WINNER;
 
     def favorite_odd (self):
         if (self.oddsHome <= self.oddsDraw and self.oddsHome <= self.oddsAway):
@@ -134,9 +159,9 @@ class Match(Base,ModelMixin):
 
     @hybrid_property
     def result_odd(self):
-        if (self.result == 0):
+        if (self.result == Match.RESULT_HOME_WINNER):
             return self.oddsHome
-        elif (self.result == 1):
+        elif (self.result == Match.RESULT_DRAW):
             return self.oddsDraw
         else:
             return self.oddsAway
@@ -145,16 +170,16 @@ class Match(Base,ModelMixin):
     def type(self, cls):
         return case({cls.result == 0: cls.oddsHome, cls.result == 1: cls.oddsDraw, cls.result == 2: cls.oddsAway})
 
-    def result_fma(self):
+    def result_fmu(self):
 
-        if (self.result == 0):
+        if (self.result == Match.RESULT_HOME_WINNER):
             if (self.oddsHome <= self.oddsDraw and self.oddsHome <= self.oddsAway):
                 return 'F'
             elif  (self.oddsHome >= self.oddsDraw and self.oddsHome >= self.oddsAway):
                 return 'U'
             else:
                 return 'M'
-        elif (self.result == 1):
+        elif (self.result == Match.RESULT_DRAW):
             if (self.oddsDraw <= self.oddsHome and self.oddsDraw <= self.oddsAway):
                 return 'F'
             elif (self.oddsDraw >= self.oddsHome and self.oddsDraw >= self.oddsAway):
@@ -486,3 +511,74 @@ class ResumeOddsDC (Base,ModelMixin):
 
     def get (self, matchId):
         return session.query(ResumeOddsDC).filter(ResumeOddsDC.matchId==matchId).one()
+    
+class Table(Base, ModelMixin):
+    
+    LOCAL_HOME = 'H'
+    LOCAL_AWAY = 'A'
+
+    __tablename__ = 'tables'
+    championshipId = Column("championship_id",Integer,ForeignKey('championships.championship_id'),primary_key=True)
+    teamId = Column("team_id",Integer,ForeignKey('teams.team_id'),primary_key=True)
+    matchesPlayed = Column("matches_played",Integer,primary_key=True)
+    winners = Column("winners",String)
+    draws = Column("draws",Integer)
+    loses = Column("loses",Integer)
+    goalsFor = Column("goals_for",Integer)
+    goalsAgainst = Column("goals_against",Integer)
+    points = Column("points", Integer)
+    matchesPlayedHome = Column("matches_played_home",Integer)
+    winnersHome = Column("winners_home",String)
+    drawsHome = Column("draws_home",Integer)
+    losesHome = Column("loses_home",Integer)
+    goalsForHome = Column("goals_for_home",Integer)
+    goalsAgainstHome = Column("goals_against_home",Integer)
+    pointsHome = Column("points_home", Integer)
+    matchesPlayedAway = Column("matches_played_away",Integer)
+    winnersAway = Column("winners_away",String)
+    drawsAway = Column("draws_away",Integer)
+    losesAway = Column("loses_away",Integer)
+    goalsForAway = Column("goals_for_away",Integer)
+    goalsAgainstAway = Column("goals_against_away",Integer)
+    pointsAway = Column("points_away", Integer)
+    lastMatchLocal = Column("last_match_local",String(1))
+    nextMachId = Column("next_match_id", String(45),ForeignKey('matches.match_id'))
+
+    def __init__(self, champId, teamId, lastMatchLocal,\
+                 matchesPlayed,winners,draws,loses,goalsFor,goalsAgainst,points,\
+                 matchesPlayedHome,winnersHome,drawsHome,losesHome,goalsForHome,goalsAgainstHome,pointsHome,\
+                 matchesPlayedAway,winnersAway,drawsAway,losesAway,goalsForAway,goalsAgainstAway,pointsAway
+                 ):
+        
+        self.championshipId = champId
+        self.teamId = teamId
+        self.lastMatchLocal = lastMatchLocal
+        
+        self.matchesPlayed = matchesPlayed
+        self.winners = winners
+        self.draws = draws
+        self.loses = loses
+        self.goalsFor= goalsFor
+        self.goalsAgainst = goalsAgainst
+        self.points = points 
+        
+        self.matchesPlayedHome = matchesPlayedHome
+        self.winnersHome = winnersHome
+        self.drawsHome = drawsHome
+        self.losesHome = losesHome
+        self.goalsForHome = goalsForHome
+        self.goalsAgainstHome = goalsAgainstHome
+        self.pointsHome = pointsHome
+        
+        self.matchesPlayedAway = matchesPlayedAway
+        self.winnersAway = winnersAway
+        self.drawsAway = drawsAway
+        self.losesAway = losesAway
+        self.goalsForAway = goalsForAway
+        self.goalsAgainstAway = goalsAgainstAway
+        self.pointsAway = pointsAway
+        
+    @staticmethod
+    def getByMatch(matchId):
+        
+        return session.query(Table).filter(Table.nextMachId==matchId).all()
