@@ -154,9 +154,9 @@ class RankingTest(unittest.TestCase):
         self.assertEqual(match.championshipId,championship.id)
         self.assertEqual(match.goalsHome,2)
         self.assertEqual(match.goalsAway,0)
-        self.assertEqual(match.oddsHome,Decimal('1.75'))
-        self.assertEqual(match.oddsDraw,Decimal('3.35'))
-        self.assertEqual(match.oddsAway,Decimal('4.74'))
+        self.assertEqual(match.oddHome,Decimal('1.75'))
+        self.assertEqual(match.oddDraw,Decimal('3.35'))
+        self.assertEqual(match.oddAway,Decimal('4.74'))
         self.assertEqual(match.round, 10)
         self.assertEqual(match.matchDate,date(2015,7,3))
 
@@ -175,14 +175,14 @@ class OddsTest(unittest.TestCase):
     def assertOdds(self, matchId):
         bookmaker = Bookmaker.get('10Bet')
         odd = Odds.get(matchId=matchId, bookmakerId=bookmaker.id)
-        self.assertEqual(odd.oddsHome, Decimal('1.63'))
-        self.assertEqual(odd.oddsDraw, Decimal('3.50'))
-        self.assertEqual(odd.oddsAway, Decimal('5.35'))
+        self.assertEqual(odd.oddHome, Decimal('1.63'))
+        self.assertEqual(odd.oddDraw, Decimal('3.50'))
+        self.assertEqual(odd.oddAway, Decimal('5.35'))
         bookmaker = Bookmaker.get('youwin')
         odd = Odds.get(matchId=matchId, bookmakerId=bookmaker.id)
-        self.assertEqual(odd.oddsHome, Decimal('1.64'))
-        self.assertEqual(odd.oddsDraw, Decimal('3.39'))
-        self.assertEqual(odd.oddsAway, Decimal('5.10'))
+        self.assertEqual(odd.oddHome, Decimal('1.64'))
+        self.assertEqual(odd.oddDraw, Decimal('3.39'))
+        self.assertEqual(odd.oddAway, Decimal('5.10'))
 
     def assertOddsOU(self, matchId):
 
@@ -243,77 +243,77 @@ class OddsTest(unittest.TestCase):
 
         bookmaker = Bookmaker.get('bet365')
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-2.5, -3')
-        self.assertEqual(odd.oddsHome, Decimal('7.80'))
-        self.assertEqual(odd.oddsAway, Decimal('1.09'))
+        self.assertEqual(odd.oddHome, Decimal('7.80'))
+        self.assertEqual(odd.oddAway, Decimal('1.09'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-2.5')
-        self.assertEqual(odd.oddsHome, Decimal('6.40'))
-        self.assertEqual(odd.oddsAway, Decimal('1.12'))
+        self.assertEqual(odd.oddHome, Decimal('6.40'))
+        self.assertEqual(odd.oddAway, Decimal('1.12'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-2, -2.5')
-        self.assertEqual(odd.oddsHome, Decimal('6.00'))
-        self.assertEqual(odd.oddsAway, Decimal('1.13'))
+        self.assertEqual(odd.oddHome, Decimal('6.00'))
+        self.assertEqual(odd.oddAway, Decimal('1.13'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-1.5, -2')
-        self.assertEqual(odd.oddsHome, Decimal('3.70'))
-        self.assertEqual(odd.oddsAway, Decimal('1.26'))
+        self.assertEqual(odd.oddHome, Decimal('3.70'))
+        self.assertEqual(odd.oddAway, Decimal('1.26'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-1.5')
-        self.assertEqual(odd.oddsHome, Decimal('3.00'))
-        self.assertEqual(odd.oddsAway, Decimal('1.38'))
+        self.assertEqual(odd.oddHome, Decimal('3.00'))
+        self.assertEqual(odd.oddAway, Decimal('1.38'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-1, -1.5')
-        self.assertEqual(odd.oddsHome, Decimal('2.60'))
-        self.assertEqual(odd.oddsAway, Decimal('1.48'))
+        self.assertEqual(odd.oddHome, Decimal('2.60'))
+        self.assertEqual(odd.oddAway, Decimal('1.48'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-1')
-        self.assertEqual(odd.oddsHome, Decimal('2.25'))
-        self.assertEqual(odd.oddsAway, Decimal('1.63'))
+        self.assertEqual(odd.oddHome, Decimal('2.25'))
+        self.assertEqual(odd.oddAway, Decimal('1.63'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-0.5, -1')
-        self.assertEqual(odd.oddsHome, Decimal('1.90'))
-        self.assertEqual(odd.oddsAway, Decimal('1.95'))
+        self.assertEqual(odd.oddHome, Decimal('1.90'))
+        self.assertEqual(odd.oddAway, Decimal('1.95'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='-0.5')
-        self.assertEqual(odd.oddsHome, Decimal('1.68'))
-        self.assertEqual(odd.oddsAway, Decimal('2.15'))
+        self.assertEqual(odd.oddHome, Decimal('1.68'))
+        self.assertEqual(odd.oddAway, Decimal('2.15'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='0, -0.5')
-        self.assertEqual(odd.oddsHome, Decimal('1.45'))
-        self.assertEqual(odd.oddsAway, Decimal('2.67'))
+        self.assertEqual(odd.oddHome, Decimal('1.45'))
+        self.assertEqual(odd.oddAway, Decimal('2.67'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='0')
-        self.assertEqual(odd.oddsHome, Decimal('1.24'))
-        self.assertEqual(odd.oddsAway, Decimal('3.90'))
+        self.assertEqual(odd.oddHome, Decimal('1.24'))
+        self.assertEqual(odd.oddAway, Decimal('3.90'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='0, 0.5')
-        self.assertEqual(odd.oddsHome, Decimal('1.19'))
-        self.assertEqual(odd.oddsAway, Decimal('4.50'))
+        self.assertEqual(odd.oddHome, Decimal('1.19'))
+        self.assertEqual(odd.oddAway, Decimal('4.50'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='+0.5')
-        self.assertEqual(odd.oddsHome, Decimal('1.16'))
-        self.assertEqual(odd.oddsAway, Decimal('5.25'))
+        self.assertEqual(odd.oddHome, Decimal('1.16'))
+        self.assertEqual(odd.oddAway, Decimal('5.25'))
 
         odd = OddsAH.get(matchId=matchId, bookmakerId=bookmaker.id, handicap='0.5, 1')
-        self.assertEqual(odd.oddsHome, Decimal('1.10'))
-        self.assertEqual(odd.oddsAway, Decimal('7.20'))
+        self.assertEqual(odd.oddHome, Decimal('1.10'))
+        self.assertEqual(odd.oddAway, Decimal('7.20'))
 
     def assertOddsDNB(self,matchId):
 
         bookmaker = Bookmaker.get('888sport')
         odd = OddsDNB.get(matchId=matchId, bookmakerId=bookmaker.id)
-        self.assertEqual(odd.oddsHome, Decimal('1.20'))
-        self.assertEqual(odd.oddsAway, Decimal('4.00'))
+        self.assertEqual(odd.oddHome, Decimal('1.20'))
+        self.assertEqual(odd.oddAway, Decimal('4.00'))
 
         bookmaker = Bookmaker.get('BetVictor')
         odd = OddsDNB.get(matchId=matchId, bookmakerId=bookmaker.id)
-        self.assertEqual(odd.oddsHome, Decimal('1.25'))
-        self.assertEqual(odd.oddsAway, Decimal('4.00'))
+        self.assertEqual(odd.oddHome, Decimal('1.25'))
+        self.assertEqual(odd.oddAway, Decimal('4.00'))
 
         bookmaker = Bookmaker.get('youwin')
         odd = OddsDNB.get(matchId=matchId, bookmakerId=bookmaker.id)
-        self.assertEqual(odd.oddsHome, Decimal('1.23'))
-        self.assertEqual(odd.oddsAway, Decimal('3.51'))
+        self.assertEqual(odd.oddHome, Decimal('1.23'))
+        self.assertEqual(odd.oddAway, Decimal('3.51'))
 
     def assertOddsDC(self,matchId):
 

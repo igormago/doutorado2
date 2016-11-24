@@ -52,10 +52,11 @@ class Path():
     
 class Features():
 
+    MATCH = "MID"
     CHAMPIONSHIP = 'CHAMP'
     TEAM = 'TEAM'
     LAST_MATCH_LOCAL = 'LML'
-    WINNERS = 'W'
+    WINS = 'W'
     DRAWS = 'D'
     LOSES = 'L'
     POINTS = 'P'
@@ -63,7 +64,7 @@ class Features():
     GOALS_AGAINST = 'GA'
     GOALS_DIFFERENCE = 'GD'
     MATCHES_PLAYED = 'MP'
-    WINNERS_HOME = 'WH'
+    WINS_HOME = 'WH'
     DRAWS_HOME = 'DH'
     LOSES_HOME = 'LH'
     POINTS_HOME = 'PH'
@@ -71,7 +72,7 @@ class Features():
     GOALS_AGAINST_HOME = 'GAH'
     GOALS_DIFFERENCE_HOME = 'GDH'
     MATCHES_PLAYED_HOME = 'MPH'
-    WINNERS_AWAY = 'WA'
+    WINS_AWAY = 'WA'
     DRAWS_AWAY = 'DA'
     LOSES_AWAY = 'LA'
     POINTS_AWAY = 'PA'
@@ -79,4 +80,9 @@ class Features():
     GOALS_AGAINST_AWAY = 'GAA'
     GOALS_DIFFERENCE_AWAY = 'GDA'
     MATCHES_PLAYED_AWAY = 'MPA'
+    
+    HOME_TEAM='H_'
+    AWAY_TEAM='A_'
+    
+    
     

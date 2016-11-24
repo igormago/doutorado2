@@ -8,12 +8,12 @@ import os, requests
 
 from bs4 import BeautifulSoup
 
-from sqlalchemy import distinct, or_
 from core import utils
-from explorer import models
-from explorer.models import Championship, Match, Team, Table
 from core.utils import Championships as champ
 from core.utils import Path as path
+from explorer import models
+from explorer.models import Championship, Match, Team, Table, Evaluation
+
 
 session = models.getSession()
 
@@ -114,21 +114,21 @@ def scrapChampionshipFiles():
 
                     elif (line == 3):
                         try:
-                            match.oddsHome = td['data-odd']
+                            match.oddHome = td['data-odd']
                         except:
-                            match.oddsHome = None
+                            match.oddHome = None
 
                     elif (line == 4):
                         try:
-                            match.oddsDraw = td['data-odd']
+                            match.oddDraw = td['data-odd']
                         except:
-                            match.oddsDraw = None
+                            match.oddDraw = None
 
                     elif (line == 5):
                         try:
-                            match.oddsAway = td['data-odd']
+                            match.oddAway = td['data-odd']
                         except:
-                            match.oddsAway = None
+                            match.oddAway = None
 
                     elif (line == 6):
                         dateStr = td.getText()
@@ -212,21 +212,21 @@ def scrapChampionshipFile(championship, year):
 
                 elif (line == 3):
                     try:
-                        match.oddsHome = td['data-odd']
+                        match.oddHome = td['data-odd']
                     except:
-                        match.oddsHome = None
+                        match.oddHome = None
 
                 elif (line == 4):
                     try:
-                        match.oddsDraw = td['data-odd']
+                        match.oddDraw = td['data-odd']
                     except:
-                        match.oddsDraw = None
+                        match.oddDraw = None
 
                 elif (line == 5):
                     try:
-                        match.oddsAway = td['data-odd']
+                        match.oddAway = td['data-odd']
                     except:
-                        match.oddsAway = None
+                        match.oddAway = None
 
                 elif (line == 6):
                     dateStr = td.getText()
@@ -262,8 +262,7 @@ def crawlerMatchFiles(matchId):
             file = open(fileName,'wb')
             file.write(r.content)
             file.close()
-            
-            
+                       
 def extracTables():
 
     #list of championships
@@ -284,19 +283,29 @@ def extracTables():
             matches = team.listMatches(champ.id)
 
             #var
-            stats = dict(dict.fromkeys(['mp','mph','mpa','lml'\
-                                        'w','d','l','gp','ga','p',\
+            stats = dict(dict.fromkeys(['mp','mph','mpa','lml',\
+                                        'w','d','l','gf','ga','p',\
                                         'wh','dh','lh','gfh','gah','ph',\
                                         'wa','da','la','gfa','gaa','pa'], 0))
+            
+            
 
-            firstMatch = True
-            table = None
+            stats['lml'] = None
+            print(stats)
+            table = Table(champ.id, team.id, stats['lml'],\
+                              stats['mp'],stats['w'],stats['d'],stats['l'],stats['gf'],stats['ga'],stats['p'],\
+                              stats['mph'],stats['wh'],stats['dh'],stats['lh'],stats['gfh'],stats['gah'],stats['ph'],\
+                              stats['mpa'],stats['wa'],stats['da'],stats['la'],stats['gfa'],stats['gaa'],stats['pa'])
+
+
+            session.add(table)
+            session.commit()
+            
             for match in matches:
 
-                if (firstMatch != True):
-                    table.nextMachId = match.id
-                    session.commit()
-                    
+
+                table.nextMatchId = match.id
+                session.commit()            
 
                 if (match.homeTeamId == team.id):
                     
@@ -343,13 +352,68 @@ def extracTables():
                               stats['mph'],stats['wh'],stats['dh'],stats['lh'],stats['gfh'],stats['gah'],stats['ph'],\
                               stats['mpa'],stats['wa'],stats['da'],stats['la'],stats['gfa'],stats['gaa'],stats['pa'])
 
+
                 session.add(table)
                 session.commit()
                 
-                firstMatch = False
-                
-extracTables()
+def extractEvalatuions():
 
+    #list of championships
+    matches = Match.list()
+
+    for m in matches:
+        
+        try:
+            evaluation = Evaluation()
+            evaluation.matchId = m.id
+            hit = False
+            if (m.oddHome <= m.oddDraw):
+                if (m.oddHome <= m.oddAway):
+                    if (m.oddDraw <= m.oddAway): # H < D < A
+                        tp = 'FMU'
+                        if (m.result == 'H'):
+                            hit = True
+                    else: # H < A < D
+                        tp = 'FUM'
+                        if (m.result == 'H'):
+                            hit = True
+                else: # A < H < D
+                    tp = 'MUF'
+                    if (m.result == 'D'):
+                        hit = True
+            else: 
+                if (m.oddHome <= m.oddAway): # H < A
+                    tp = "MFU"
+                    if (m.result == 'D'):
+                        hit = True
+                else: # A < H
+                    if (m.oddDraw <= m.oddAway): # D < A < H
+                        tp = 'UFM'
+                        if (m.result == 'A'):
+                            hit = True
+                    else: # A < D < H
+                        tp = 'UMF'
+                        if (m.result == 'A'):
+                            hit = True
+                        
+            evaluation.type = tp
+            evaluation.hit_books = hit
+            
+            evaluation.save()
+        except:
+            pass
+        
+    session.commit()
+        
+
+        
+        
+        
+                    
+        
+                
+                
+    
 
 #          
 # def crawlerMatchFiles():
@@ -378,3 +442,32 @@ extracTables()
 #                 file = open(fileName,'wb')
 #                 file.write(r.content)
 #                 file.close()   
+
+def updateMatches():
+    
+    #list of championships
+    championships = Championship.list()
+
+    for champ in championships:
+        
+        print(champ)
+
+        #list ID teams of championship
+        matches = champ.listMatches()
+        
+        if (len(matches) == 240):
+            mn = 1
+            mgn = 1 
+            for m in matches:
+                m.matchNum = mn
+                m.matchGroupNum = mgn
+                
+                if (mn % 8 == 0):
+                    mgn = mgn + 1
+                
+                mn = mn + 1
+                
+        session.commit()
+                
+            
+updateMatches()
